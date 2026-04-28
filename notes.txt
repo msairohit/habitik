@@ -1,0 +1,10 @@
+ability to stop the task in the middle so that the remaining time is adjusted for that day.
+change the duration to hours and minutes after 1 hr.
+sticky notification when we start the task with timer on it.
+when we mark task as done it should directly update in the database.
+ability to apply multiple themes.
+option for full screen mode when timer is running.
+how to handle multiple tasks when overlapping time?
+notifications are not coming timely, its taking a min or two late
+reduce the glow effect from the clock in the ui
+buttons are not working.

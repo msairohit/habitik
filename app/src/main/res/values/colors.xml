@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="brand_violet">#FF7C3AED</color>
+    <color name="brand_indigo">#FF4F46E5</color>
+    <color name="brand_cyan">#FF06B6D4</color>
+    <color name="brand_rose">#FFF43F5E</color>
+
+    <!-- Backgrounds (dark) -->
+    <color name="bg_base">#FF07090F</color>
+    <color name="bg_surface">#FF0D1117</color>
+    <color name="bg_card">#FF161B26</color>
+
+    <!-- Surfaces (light) -->
+    <color name="bg_light">#FFF0F4FF</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <!-- Legacy compat -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF7C3AED</color>
+    <color name="purple_700">#FF4F46E5</color>
+    <color name="teal_200">#FF06B6D4</color>
+    <color name="teal_700">#FF0891B2</color>
+</resources>

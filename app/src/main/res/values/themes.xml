@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Habitik" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_violet</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/brand_indigo</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorTertiary">@color/brand_rose</item>
+        <item name="colorOnTertiary">@color/white</item>
+        <!-- True deep navy status bar -->
+        <item name="android:statusBarColor">@color/bg_base</item>
+        <item name="android:navigationBarColor">@color/bg_base</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

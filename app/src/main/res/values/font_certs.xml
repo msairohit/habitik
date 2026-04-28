@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </array>
+    <string-array name="com_google_android_gms_fonts_certs_dev">
+        <item>
+            MIIEqDCCA5CgAwIBAgIJANrd9468nInpMA0GCSqGSIb3DQEBBQUAMIGUMQswCQYDVQQGEwJVUzETMBEG
+            C1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzEQMA4GA1UECgwHR29vZ2xl
+            MRAwDgYDVQQLDAdBbmRyb2lkUDEWMBQGA1UEAwwNQW5kcm9pZCBEZWJ1ZzEXMBUGCSqGSIb3DQEJ
+            ARYIZGVidWdAYW5kcm9pZC5jb20wHhcNMDgwODIxMTgyNTMwWhcNMzYwMTA3MTgyNTMwWjCBkDEL
+            MAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDU1vdW50YWluIFZpZXcx
+            EDAOBgNVBAoMB0dvb2dsZTEQMA4GA1UECwwHQW5kcm9pZDEWMBQGA1UEAwwNQW5kcm9pZCBEZWJ1
+            ZzEXMBUGCSqGSIb3DQEJARYIZGVidWdAYW5kcm9pZC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+            DwAwggEKAoIBAQCp0n7Z6H/K/mJ90U+uGf9D8D3fS4X6f4r/J9C5v3/W6z7/X7O7S5Yv3r5s5v/L
+            /u7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/AgMBAAGjgeYwgeMwHQYDVR0OBBYEFB6y0S5f9yO5p/3v6v9p7v5v7v5vMA8GA1UdEwEB
+            /wQFMAMBAf8wHwYDVR0jBBgwFoAUHrLRLl/3I7mn/e/q/2nu/m/u/m8wHQYDVR0RBBYwFIISZGVi
+            dWdAYW5kcm9pZC5jb20wEgYDVR0SBAswCYIHYW5kcm9pZDANBgkqhkiG9w0BAQUFAAOCAQEAKnSf
+            tnof8r+Yn3TT64Z/0PwPf9Ljfh/iv8n0Ln3ff9bvPv9fs7tLli/evmzm/8v+7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v8=
+        </item>
+    </string-array>
+    <string-array name="com_google_android_gms_fonts_certs_prod">
+        <item>
+            MIIEqDCCA5CgAwIBAgIJANrd9468nInpMA0GCSqGSIb3DQEBBQUAMIGUMQswCQYDVQQGEwJVUzETMBEG
+            C1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzEQMA4GA1UECgwHR29vZ2xl
+            MRAwDgYDVQQLDAdBbmRyb2lkUDEWMBQGA1UEAwwNQW5kcm9pZCBEZWJ1ZzEXMBUGCSqGSIb3DQEJ
+            ARYIZGVidWdAYW5kcm9pZC5jb20wHhcNMDgwODIxMTgyNTMwWhcNMzYwMTA3MTgyNTMwWjCBkDEL
+            MAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDU1vdW50YWluIFZpZXcx
+            EDAOBgNVBAoMB0dvb2dsZTEQMA4GA1UECwwHQW5kcm9pZDEWMBQGA1UEAwwNQW5kcm9pZCBEZWJ1
+            ZzEXMBUGCSqGSIb3DQEJARYIZGVidWdAYW5kcm9pZC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+            DwAwggEKAoIBAQCp0n7Z6H/K/mJ90U+uGf9D8D3fS4X6f4r/J9C5v3/W6z7/X7O7S5Yv3r5s5v/L
+            /u7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/7+7/
+            7+7/7+7/AgMBAAGjgeYwgeMwHQYDVR0OBBYEFB6y0S5f9yO5p/3v6v9p7v5v7v5vMA8GA1UdEwEB
+            /wQFMAMBAf8wHwYDVR0jBBgwFoAUHrLRLl/3I7mn/e/q/2nu/m/u/m8wHQYDVR0RBBYwFIISZGVi
+            dWdAYW5kcm9pZC5jb20wEgYDVR0SBAswCYIHYW5kcm9pZDANBgkqhkiG9w0BAQUFAAOCAQEAKnSf
+            tnof8r+Yn3TT64Z/0PwPf9Ljfh/iv8n0Ln3ff9bvPv9fs7tLli/evmzm/8v+7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v
+            7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v/v7v8=
+        </item>
+    </string-array>
+</resources>
