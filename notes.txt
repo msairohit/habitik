@@ -8,3 +8,4 @@ how to handle multiple tasks when overlapping time?
 notifications are not coming timely, its taking a min or two late
 reduce the glow effect from the clock in the ui
 buttons are not working.
+countdown is working fine but still not sticky. Do we need to ask some permission from user or smt?
