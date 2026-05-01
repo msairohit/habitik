@@ -29,12 +29,19 @@ import com.habitik.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RoutineBuilderScreen(viewModel: RoutineBuilderViewModel = hiltViewModel()) {
+fun RoutineBuilderScreen(
+    viewModel: RoutineBuilderViewModel = hiltViewModel(),
+    initialTime: String? = null
+) {
     val tasks by viewModel.tasks.collectAsState()
-    var showAddSheet by remember { mutableStateOf(false) }
+    var showAddSheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(initialTime != null) }
     var taskToEdit   by remember { mutableStateOf<TaskEntity?>(null) }
+    
+    // If initialTime is provided and we are not editing, pre-fill it for the sheet
+    val effectiveInitialTime = if (taskToEdit == null) initialTime else null
 
-    // ── Animated gradient background ────────────────────────────────────────
+
+    // ── Animated colorful background ────────────────────────────────────────
     val infiniteTransition = rememberInfiniteTransition(label = "builderBg")
     val shift by infiniteTransition.animateFloat(
         initialValue  = 0f,
@@ -42,20 +49,12 @@ fun RoutineBuilderScreen(viewModel: RoutineBuilderViewModel = hiltViewModel()) {
         animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse),
         label         = "builderShift"
     )
-    val bgBrush = Brush.radialGradient(
-        colors = listOf(
-            GlowCyan.copy(alpha = 0.15f + 0.06f * shift),
-            GlowViolet.copy(alpha = 0.10f + 0.05f * (1f - shift)),
-            BgBase
-        ),
-        center = Offset(900f + 200f * (1f - shift), 600f + 150f * shift),
-        radius = 1300f
-    )
+    val bgColor = if (shift > 0.5f) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Background
-        Box(Modifier.fillMaxSize().background(BgBase))
-        Box(Modifier.fillMaxSize().background(bgBrush))
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+        Box(Modifier.fillMaxSize().background(bgColor))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -63,7 +62,7 @@ fun RoutineBuilderScreen(viewModel: RoutineBuilderViewModel = hiltViewModel()) {
                 LargeTopAppBar(
                     colors = TopAppBarDefaults.largeTopAppBarColors(
                         containerColor        = Color.Transparent,
-                        scrolledContainerColor = BgSurface.copy(alpha = 0.92f),
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                         titleContentColor     = MaterialTheme.colorScheme.onBackground
                     ),
                     title = {
@@ -77,13 +76,13 @@ fun RoutineBuilderScreen(viewModel: RoutineBuilderViewModel = hiltViewModel()) {
                 )
             },
             floatingActionButton = {
-                // Gradient FAB
+                // Colorful FAB
                 Box(
                     modifier = Modifier
                         .size(68.dp)
-                        .shadow(20.dp, RoundedCornerShape(22.dp), spotColor = GlowViolet.copy(alpha = 0.6f))
+                        .shadow(20.dp, RoundedCornerShape(22.dp), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                         .clip(RoundedCornerShape(22.dp))
-                        .background(Brush.linearGradient(listOf(GlowViolet, GlowCyan)))
+                        .background(MaterialTheme.colorScheme.primary)
                         .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -122,6 +121,8 @@ fun RoutineBuilderScreen(viewModel: RoutineBuilderViewModel = hiltViewModel()) {
     if (showAddSheet) {
         AddTaskBottomSheet(
             taskToEdit = taskToEdit,
+            initialStartTime = effectiveInitialTime,
+            existingTasks = tasks,
             onDismiss  = { showAddSheet = false },
             onSave     = { task ->
                 if (taskToEdit == null) viewModel.addTask(task)
@@ -143,9 +144,9 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             Box(
                 Modifier
                     .size(120.dp)
-                    .shadow(24.dp, CircleShape, spotColor = GlowViolet.copy(alpha = 0.4f))
+                    .shadow(24.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     .clip(CircleShape)
-                    .background(Brush.radialGradient(listOf(GlowViolet.copy(alpha = 0.3f), BgCard))),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -195,11 +196,7 @@ fun TaskListItem(
                 modifier         = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color.Transparent, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f))
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f))
                     .padding(end = 28.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
@@ -215,21 +212,21 @@ fun TaskListItem(
         Surface(
             onClick         = { onEdit(task) },
             shape           = RoundedCornerShape(28.dp),
-            color           = Color.White.copy(alpha = 0.05f),
-            border          = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
+            color           = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+            border          = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
             shadowElevation = 0.dp
         ) {
             Row(
                 modifier          = Modifier.fillMaxWidth().padding(18.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category gradient icon box
+                // Category solid color icon box
                 Box(
                     Modifier
                         .size(56.dp)
                         .shadow(10.dp, RoundedCornerShape(20.dp), spotColor = categoryColor.copy(alpha = 0.5f))
                         .clip(RoundedCornerShape(20.dp))
-                        .background(getCategoryGradient(task.category))
+                        .background(getCategoryBrush(task.category))
                 )
 
                 Spacer(Modifier.width(16.dp))
@@ -243,8 +240,24 @@ fun TaskListItem(
                     )
                     Spacer(Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val infoText = when(task.measurementType) {
+                            "TIME" -> "${task.startTime}  ·  ${task.durationMin} min"
+                            "COUNT" -> "${task.repeatCount} times/day"
+                            "QUANTITY" -> "${task.goalValue} ${task.goalUnit}"
+                            else -> task.startTime
+                        }
+                        
+                        val freqText = when {
+                            task.repeatDays == "ONCE" -> "Once"
+                            task.repeatDays == "DAILY" -> "Daily"
+                            task.repeatDays == "WEEKDAYS" -> "Weekdays"
+                            task.repeatDays == "WEEKENDS" -> "Weekends"
+                            task.repeatDays.startsWith("[") -> "Custom"
+                            else -> task.repeatDays
+                        }
+
                         Text(
-                            "${task.startTime}  ·  ${task.durationMin} min",
+                            "$infoText  ·  $freqText",
                             style      = MaterialTheme.typography.bodyMedium,
                             color      = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.SemiBold

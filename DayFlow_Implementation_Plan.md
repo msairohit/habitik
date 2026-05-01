@@ -29,13 +29,13 @@
 
 ### 1.2 Timeline View
 - Vertical day view (Google Calendar style)
-- Gradient color blocks per category
+- Vibrant solid color blocks per category
 - Swipe left/right for days
 - Tap block → bottom sheet with detail + edit
 - Free time gaps shown as dashed blocks
 
 ### 1.3 Home Screen — Now Focus
-- Current task card: bold gradient, category color, circular countdown ring
+- Current task card: bold vibrant color, category color, circular countdown ring
 - Pending/skipped tasks: muted chip strip above current card
 - Up Next preview: 2 upcoming tasks shown subtly below
 - Actions: ✓ Done | ⏭ Skip | +10 min Snooze (overlaps, does not push tasks)
@@ -151,7 +151,7 @@ com.dayflow/
 │   │   ├── CircularCountdownRing.kt
 │   │   ├── TaskCard.kt
 │   │   ├── PendingChipStrip.kt
-│   │   ├── GradientBlock.kt
+│   │   ├── SolidColorBlock.kt
 │   │   ├── HeatmapCalendar.kt
 │   │   ├── StatCard.kt
 │   │   ├── BottomSheetTaskDetail.kt
@@ -206,7 +206,7 @@ CREATE TABLE tasks (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   name            TEXT NOT NULL,
   category        TEXT NOT NULL,          -- HEALTH, WORK, PERSONAL, FAMILY, SPIRITUAL, OTHER
-  color_hex       TEXT NOT NULL,          -- Category gradient start color
+  color_hex       TEXT NOT NULL,          -- Category vibrant solid color
   start_time      TEXT NOT NULL,          -- "HH:mm" 24hr format
   duration_min    INTEGER NOT NULL,       -- Duration in minutes
   is_flexible     INTEGER NOT NULL,       -- 0=fixed, 1=flexible window
@@ -285,18 +285,18 @@ onboarding_done     Boolean               default false
 - Create Repository classes wrapping DAOs with Flow returns
 
 ### Step 1.3 — Theme & Design System
-- `Color.kt`: Define category gradient pairs (start + end color) for all 6 categories
+- `Color.kt`: Define category vibrant solid colors for all 6 categories
   ```
-  HEALTH   → #FF6B6B → #FF8E53
-  WORK     → #4ECDC4 → #45B7D1
-  PERSONAL → #A855F7 → #EC4899
-  FAMILY   → #F59E0B → #EF4444
-  SPIRITUAL→ #667EEA → #764BA2
-  OTHER    → #6EE7B7 → #3B82F6
+  HEALTH   → #FF4757 (Radical Red)
+  WORK     → #2E86DE (Bleu De France)
+  PERSONAL → #833471 (Hollyhock)
+  FAMILY   → #F0932B (Orange Hibiscus)
+  SPIRITUAL→ #130F40 (Deep Cove)
+  OTHER    → #20BF6B (Algal Fuel)
   ```
 - `Typography.kt`: Use Google Fonts — `Nunito` for body, `Poppins` for display (free via fonts.google.com, add to assets)
 - `Theme.kt`: Material 3 dynamic color + custom overrides
-- `CategoryColors.kt`: Helper to get gradient brush from category enum
+- `CategoryColors.kt`: Helper to get solid color from category enum
 
 ### Step 1.4 — Routine Builder Screen
 **UI Components needed:**
@@ -347,11 +347,11 @@ Implement these domain use cases:
 - `CircularCountdownRing.kt`:
   - Canvas-drawn ring
   - Sweeps from full to empty as time passes
-  - Color matches task category gradient
+  - Color matches task category solid color
   - Center: large remaining time text (MM:SS or HH:MM)
   - Animated with `animateFloatAsState` + spring spec
 - `TaskCard.kt`:
-  - Full-width gradient card (Brush.linearGradient)
+  - Full-width vibrant solid color card
   - Task name (Poppins Bold, large)
   - Category pill badge
   - CircularCountdownRing embedded
@@ -373,7 +373,7 @@ Implement these domain use cases:
 - `TimelineScreen.kt`: HorizontalPager for days (today ± 7 days)
 - `DayTimelineView.kt`:
   - LazyColumn with time axis on left (00:00–23:59)
-  - Each task = `GradientTimeBlock.kt` positioned by start_time + height by duration
+  - Each task = `SolidTimeBlock.kt` positioned by start_time + height by duration
   - Free time = dashed `FreeTimeBlock.kt`
   - Current time indicator: red horizontal line
 - `BottomSheetTaskDetail.kt`: shows on block tap, has Edit + Done/Skip buttons
@@ -429,7 +429,7 @@ Implement these domain use cases:
 
 ### Step 3.1 — End-of-Day Wrap-Up Screen
 **`WrapUpScreen.kt`:**
-- Full-screen dark gradient background
+- Full-screen colorful solid background with high-contrast elements
 - Animated score ring (Canvas, animates from 0 to final %)
   - Color: green if ≥80%, amber if 50–79%, red if <50%
 - Summary numbers animate counting up
@@ -594,10 +594,10 @@ All repositories should expose Flow<List<T>> for reactive UI updates.
 **P1-C: Theme & Design System**
 ```
 Create the complete design system for DayFlow (colorful, energetic, Material 3):
-- Color.kt with category gradient pairs as listed
+- Color.kt with category vibrant solid colors as listed
 - Typography.kt using Poppins (display) and Nunito (body) from Google Fonts assets
 - Theme.kt with Material 3 setup, dark/light support
-- CategoryColors.kt with getCategoryGradient(category: TaskCategory): Brush
+- CategoryColors.kt with getCategoryColor(category: TaskCategory): Color
 - TaskCategory enum with: HEALTH, WORK, PERSONAL, FAMILY, SPIRITUAL, OTHER
 ```
 
@@ -629,8 +629,8 @@ Each use case should be injectable via Hilt and use suspend functions or Flow.
 **P2-B: Home Screen**
 ```
 Create the Now Focus home screen for DayFlow:
-- CircularCountdownRing.kt: Canvas-drawn animated ring, category gradient color, center time text
-- TaskCard.kt: gradient card with task name, category pill, countdown ring, Done/Skip/Snooze buttons, haptic on Done
+- CircularCountdownRing.kt: Canvas-drawn animated ring, category solid color, center time text
+- TaskCard.kt: vibrant color card with task name, category pill, countdown ring, Done/Skip/Snooze buttons, haptic on Done
 - PendingChipStrip.kt: muted horizontal chip row for skipped/pending tasks
 - HomeScreen.kt: assembles all components, shows "Rest Day" if no tasks
 - HomeViewModel.kt: ticker Flow updating every second, exposes currentTask/pendingTasks/upNextTasks
@@ -640,8 +640,8 @@ Create the Now Focus home screen for DayFlow:
 ```
 Create the Timeline screen for DayFlow:
 - TimelineScreen.kt with HorizontalPager for 15 days (today ± 7)
-- DayTimelineView.kt: scrollable vertical timeline with time axis, gradient task blocks positioned by time
-- GradientTimeBlock.kt: height proportional to duration, tap opens bottom sheet
+- DayTimelineView.kt: scrollable vertical timeline with time axis, vibrant solid task blocks positioned by time
+- SolidTimeBlock.kt: height proportional to duration, tap opens bottom sheet
 - FreeTimeBlock.kt: dashed outline block for gaps
 - Current time red line indicator
 - BottomSheetTaskDetail.kt: task details + done/skip actions + edit navigation
@@ -666,7 +666,7 @@ Also add BOOT_COMPLETED receiver to reschedule alarms after device restart.
 **P3-A: End-of-Day Wrap-Up**
 ```
 Create the End-of-Day Wrap-Up screen for DayFlow:
-- WrapUpScreen.kt: full-screen dark gradient, animated score ring (Canvas), done/skipped/pending counts with count-up animation, skipped task cards with reschedule button, Konfetti confetti if ≥80%, "See you tomorrow" dismiss
+- WrapUpScreen.kt: full-screen bold colorful background, animated score ring (Canvas), done/skipped/pending counts with count-up animation, skipped task cards with reschedule button, Konfetti confetti if ≥80%, "See you tomorrow" dismiss
 - WrapUpViewModel.kt: aggregates today's logs, handles reschedule, triggers streak update
 - ConfettiOverlay.kt: Konfetti library integration, fires programmatically
 Use Lottie for streak flame animation (provide placeholder Lottie JSON path).

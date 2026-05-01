@@ -72,74 +72,56 @@ Run directly from the project root when you need more control.
 
 Enables cable-free development over Wi-Fi. Your phone and PC must be on the **same network**.
 
-### Step 1 — Initial USB connection (one-time setup)
+### Option A: Modern (Android 11+) — No USB Cable Needed
 
-1. Enable **Developer Options** on your phone:
-   - Settings → About Phone → tap **Build Number** 7 times
-2. Enable **USB Debugging** inside Developer Options
-3. Connect phone via USB and confirm the RSA key prompt on the phone
-4. Verify it's recognized:
-   ```powershell
-   adb devices
-   # Should list your device with status "device"
-   ```
+This method uses dynamic ports shown in your phone's settings.
 
-### Step 2 — Switch to TCP/IP mode
+1.  **Enable Wireless Debugging**: Settings → Developer Options → **Wireless Debugging** (toggle ON).
+2.  **Pair (First time only)**:
+    - Tap **"Pair device with pairing code"**.
+    - Note the **IP address & Port** (e.g., `192.168.1.8:44303`) and the **6-digit pairing code**.
+    - In your terminal, run:
+      ```powershell
+      adb pair 192.168.1.8:44303  # Use the port from the Pairing dialog
+      ```
+    - Enter the code when prompted.
+3.  **Connect**:
+    - Look at the main **Wireless Debugging** screen (not the pairing dialog) for the **"IP address & Port"**. This port is usually different from the pairing port.
+    - Run:
+      ```powershell
+      adb connect 192.168.1.8:44159  # Use the port from the main screen
+      ```
+4.  **Verify**: `adb devices` should list the device.
 
-```powershell
-adb tcpip 5555
-```
+---
 
-This tells the ADB daemon on the phone to listen on port 5555. You'll see: `restarting in TCP mode port: 5555`.
+### Option B: Classic — USB Cable Required Once
 
-### Step 3 — Find the phone's IP address
+Use this for older Android versions or if Option A is failing.
 
-On your phone: Settings → Wi-Fi → tap your network → IP Address  
-Or run:
-```powershell
-adb shell ip route | Select-String "src"
-# The address after "src" is your phone's IP
-```
+1.  **Prepare**: Enable **USB Debugging** in Developer Options.
+2.  **Toggle TCP Mode**: Connect via USB and run:
+    ```powershell
+    adb tcpip 5555
+    ```
+3.  **Find IP**: On phone: Settings → Wi-Fi → [Your Network] → IP Address.
+4.  **Connect**: Unplug USB and run:
+    ```powershell
+    adb connect 192.168.1.8:5555
+    ```
 
-### Step 4 — Connect wirelessly
+---
 
-```powershell
-adb connect 192.168.1.42:5555
-# Replace with your actual phone IP
-```
+### Using with `dev.ps1`
 
-Expected output: `connected to 192.168.1.42:5555`
-
-You can now unplug the USB cable. Verify:
-```powershell
-adb devices
-# Should still list the device
-```
-
-### Step 5 — Use with dev.ps1
+Once connected via ADB, you can use the `-Wireless` flag (though most commands will work automatically if only one device is connected):
 
 ```powershell
-.\dev.ps1 -Wireless 192.168.1.42
+.\dev.ps1 -Wireless 192.168.1.8:44159
 ```
 
-### Reconnecting after reboot / Wi-Fi change
-
-You only need to redo **Steps 2–4** (the USB cable for Step 2 is needed only briefly to run `adb tcpip 5555`). On Android 11+, you can also use **Wireless Debugging** in Developer Options to pair without a USB cable at all (see below).
-
-### Android 11+ — Fully wireless pairing (no USB needed after first time)
-
-1. Go to Developer Options → **Wireless Debugging** → toggle ON
-2. Tap **Pair device with pairing code**
-3. Note the IP:port and 6-digit code shown
-4. Run:
-   ```powershell
-   adb pair 192.168.1.42:12345
-   # Enter the 6-digit code when prompted
-   ```
-5. Then connect normally:
-   ```powershell
-   adb connect 192.168.1.42:5555
-   ```
+> [!TIP]
+> If you reboot your phone or change Wi-Fi, you usually only need to repeat the **Connect** step (Step 3 in Option A). Pairing is usually remembered until you "Forget" the PC in the phone's settings.
 
 ---
 
@@ -170,7 +152,7 @@ adb devices
 
 If wireless connection dropped, reconnect:
 ```powershell
-adb connect 192.168.1.42:5555
+adb connect 192.168.1.8:44159
 ```
 
 ---

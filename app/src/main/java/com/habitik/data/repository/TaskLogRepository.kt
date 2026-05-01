@@ -17,6 +17,9 @@ class TaskLogRepository @Inject constructor(
     fun getLogsInRange(startDate: String, endDate: String): Flow<List<TaskLogEntity>> = 
         taskLogDao.getLogsInRange(startDate, endDate)
         
+    suspend fun getLatestLogForTask(taskId: Int, date: String): TaskLogEntity? = 
+        taskLogDao.getLatestLogForTask(taskId, date)
+        
     suspend fun insertLog(log: TaskLogEntity): Long = taskLogDao.insertLog(log)
     
     suspend fun updateLog(log: TaskLogEntity) = taskLogDao.updateLog(log)

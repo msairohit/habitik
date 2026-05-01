@@ -8,8 +8,12 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.habitik.MainActivity
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class NotificationHelper(private val context: Context) {
+@Singleton
+class NotificationHelper @Inject constructor(@ApplicationContext private val context: Context) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     companion object {
@@ -117,5 +121,9 @@ class NotificationHelper(private val context: Context) {
         notification.flags = notification.flags or android.app.Notification.FLAG_NO_CLEAR or android.app.Notification.FLAG_ONGOING_EVENT
 
         notificationManager.notify(routineId + 20000, notification)
+    }
+
+    fun cancelAllNotifications() {
+        notificationManager.cancelAll()
     }
 }

@@ -17,6 +17,15 @@ class RoutineReceiver : BroadcastReceiver() {
     @Inject
     lateinit var repository: RoutineRepository
 
+    @Inject
+    lateinit var taskRepository: com.habitik.data.repository.TaskRepository
+
+    @Inject
+    lateinit var alarmScheduler: AlarmScheduler
+
+    @Inject
+    lateinit var notificationHelper: NotificationHelper
+
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
         Log.d("RoutineReceiver", "onReceive: action=$action")
@@ -31,11 +40,19 @@ class RoutineReceiver : BroadcastReceiver() {
 
                 Log.d("RoutineReceiver", "Pre-alert → task='$taskName' id=$taskId in ${reminderMin}m")
 
-                NotificationHelper(context).showNotification(
-                    routineId = taskId,
-                    title     = "⏰ Starting Soon: $taskName",
-                    message   = "Your task starts in $reminderMin minute${if (reminderMin == 1) "" else "s"}. Get ready!"
-                )
+                CoroutineScope(Dispatchers.IO).launch {
+                    val task = taskRepository.getTaskById(taskId)
+                    if (task != null && task.isActive) {
+                        notificationHelper.showNotification(
+                            routineId = taskId,
+                            title     = "⏰ Starting Soon: ${task.name}",
+                            message   = "Your task starts in $reminderMin minute${if (reminderMin == 1) "" else "s"}. Get ready!"
+                        )
+                    } else {
+                        Log.d("RoutineReceiver", "Skipping notification and cancelling ghost alarm for task id=$taskId")
+                        alarmScheduler.cancelTask(taskId)
+                    }
+                }
             }
 
             // ── On-start alert: fires exactly at task startTime ────────────────────
@@ -46,12 +63,20 @@ class RoutineReceiver : BroadcastReceiver() {
 
                 Log.d("RoutineReceiver", "Start-alert → task='$taskName' id=$taskId duration=$durationMin")
 
-                // Use a distinct notification ID (offset) so it doesn't replace the pre-alert
-                NotificationHelper(context).showTaskInProgressNotification(
-                    routineId = taskId,
-                    title     = taskName,
-                    durationMin = durationMin
-                )
+                CoroutineScope(Dispatchers.IO).launch {
+                    val task = taskRepository.getTaskById(taskId)
+                    if (task != null && task.isActive) {
+                        // Use a distinct notification ID (offset) so it doesn't replace the pre-alert
+                        notificationHelper.showTaskInProgressNotification(
+                            routineId = taskId,
+                            title     = task.name,
+                            durationMin = durationMin
+                        )
+                    } else {
+                        Log.d("RoutineReceiver", "Skipping notification and cancelling ghost alarm for task id=$taskId")
+                        alarmScheduler.cancelTask(taskId)
+                    }
+                }
             }
 
             // ── Mark Done action from notification button ───────────────────────────

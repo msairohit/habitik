@@ -1,11 +1,16 @@
-ability to stop the task in the middle so that the remaining time is adjusted for that day.
-change the duration to hours and minutes after 1 hr.
+(done)ability to stop the task in the middle so that the remaining time is adjusted for that day and can continue that task later for the remaining amount of time.
+(done)change the duration to hours and minutes after 1 hr.
 sticky notification when we start the task with timer on it.
 when we mark task as done it should directly update in the database.
-ability to apply multiple themes.
+(done)ability to apply multiple themes.
 option for full screen mode when timer is running.
-how to handle multiple tasks when overlapping time?
+how to handle multiple tasks when overlapping time? (can show multiple timers at a time and ask which one to start and pause other ones)
 notifications are not coming timely, its taking a min or two late
 reduce the glow effect from the clock in the ui
 buttons are not working.
 countdown is working fine but still not sticky. Do we need to ask some permission from user or smt?
+theme is not getting persited.
+pre alert is not needed for count and quantity tasks right?
+it will be better if we ask for frequency like if a task is for 10 times, how much time between them so that we can remind them accordingly.
+calender view in home screen where if we select any day, it should show the tasks details along with summary like how much each task is completed on that day.
+if some task is done from task details view also, the focus now is reflecting but still showing done button and when clicked again it increases the count.

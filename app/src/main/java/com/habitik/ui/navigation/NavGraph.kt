@@ -4,8 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.habitik.ui.screens.builder.RoutineBuilderScreen
-import com.habitik.ui.screens.home.HomeScreen
+import com.habitik.ui.screens.home.TaskDetailScreen
 
 @Composable
 fun NavGraph() {
@@ -13,15 +12,12 @@ fun NavGraph() {
     
     NavHost(
         navController = navController,
-        startDestination = "home"
+        startDestination = "main"
     ) {
-        composable("home") {
-            HomeScreen(
-                onNavigateToBuilder = { navController.navigate("builder") }
+        composable("main") {
+            MainScreen(
+                rootNavController = navController
             )
-        }
-        composable("builder") {
-            RoutineBuilderScreen()
         }
     }
 }

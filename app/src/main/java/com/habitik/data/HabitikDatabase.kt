@@ -14,7 +14,7 @@ import com.habitik.data.entity.StreakEntity
 
 @Database(
     entities = [TaskEntity::class, TaskLogEntity::class, StreakEntity::class, Routine::class],
-    version = 5, // Incrementing version to include Routine
+    version = 9, // Incremented for schema changes
     exportSchema = false
 )
 abstract class HabitikDatabase : RoomDatabase() {

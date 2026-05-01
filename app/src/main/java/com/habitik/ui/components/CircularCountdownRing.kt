@@ -17,8 +17,10 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun CircularCountdownRing(
     progress     : Float,        // 0.0 → 1.0
-    remainingTime: String,
-    gradient     : Brush,
+    centerText   : String,
+    subText      : String = "REMAINING",
+    isDoneMode   : Boolean = false,
+    brush        : Brush,
     modifier     : Modifier = Modifier
 ) {
     val animatedProgress by animateFloatAsState(
@@ -53,7 +55,7 @@ fun CircularCountdownRing(
 
             // Outer bloom
             drawArc(
-                brush      = gradient,
+                brush      = brush,
                 startAngle = -90f,
                 sweepAngle = 360f * animatedProgress,
                 useCenter  = false,
@@ -63,7 +65,7 @@ fun CircularCountdownRing(
 
             // Mid glow
             drawArc(
-                brush      = gradient,
+                brush      = brush,
                 startAngle = -90f,
                 sweepAngle = 360f * animatedProgress,
                 useCenter  = false,
@@ -73,7 +75,7 @@ fun CircularCountdownRing(
 
             // Main progress arc
             drawArc(
-                brush      = gradient,
+                brush      = brush,
                 startAngle = -90f,
                 sweepAngle = 360f * animatedProgress,
                 useCenter  = false,
@@ -83,15 +85,22 @@ fun CircularCountdownRing(
 
         // Text overlay
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val percentage = if (isDoneMode) (animatedProgress * 100).toInt() else ((1f - animatedProgress) * 100).coerceIn(0f, 100f).toInt()
             Text(
-                text          = remainingTime,
+                text = "$percentage%",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.85f),
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text          = centerText,
                 style         = MaterialTheme.typography.displayMedium,
                 fontWeight    = FontWeight.Black,
                 color         = Color.White,
                 letterSpacing = (-1.5).sp
             )
             Text(
-                text          = "REMAINING",
+                text          = subText.uppercase(),
                 style         = MaterialTheme.typography.labelSmall,
                 color         = Color.White.copy(alpha = 0.55f),
                 fontWeight    = FontWeight.Bold,

@@ -18,6 +18,9 @@ interface TaskLogDao {
     @Query("SELECT * FROM task_logs WHERE taskId = :taskId")
     fun getLogsForTask(taskId: Int): Flow<List<TaskLogEntity>>
 
+    @Query("SELECT * FROM task_logs WHERE logDate = :date AND taskId = :taskId ORDER BY id DESC LIMIT 1")
+    suspend fun getLatestLogForTask(taskId: Int, date: String): TaskLogEntity?
+
     @Query("SELECT * FROM task_logs WHERE logDate BETWEEN :startDate AND :endDate")
     fun getLogsInRange(startDate: String, endDate: String): Flow<List<TaskLogEntity>>
 }

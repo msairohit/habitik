@@ -61,33 +61,39 @@ class AlarmScheduler @Inject constructor(
         if (task.reminderMin > 0) {
             val preAlertAt = nextTrigger(
                 base = LocalDateTime.of(LocalDate.now(), startTime).minusMinutes(task.reminderMin.toLong()),
-                now = now
+                now = now,
+                task = task
             )
-            setAlarm(
-                triggerMillis = preAlertAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-                pendingIntent = buildPendingIntent(
-                    requestCode = task.id,
-                    action      = ACTION_ROUTINE_ALARM,
-                    task        = task
+            if (preAlertAt != null) {
+                setAlarm(
+                    triggerMillis = preAlertAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                    pendingIntent = buildPendingIntent(
+                        requestCode = task.id,
+                        action      = ACTION_ROUTINE_ALARM,
+                        task        = task
+                    )
                 )
-            )
-            Log.d("AlarmScheduler", "Pre-alert scheduled for '${task.name}' at $preAlertAt (${task.reminderMin}m before)")
+                Log.d("AlarmScheduler", "Pre-alert scheduled for '${task.name}' at $preAlertAt (${task.reminderMin}m before)")
+            }
         }
 
         // ── 2. Task-start alert ───────────────────────────────────────────────────
         val startAt = nextTrigger(
             base = LocalDateTime.of(LocalDate.now(), startTime),
-            now  = now
+            now  = now,
+            task = task
         )
-        setAlarm(
-            triggerMillis = startAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            pendingIntent = buildPendingIntent(
-                requestCode = task.id + START_ALARM_OFFSET,
-                action      = ACTION_TASK_START,
-                task        = task
+        if (startAt != null) {
+            setAlarm(
+                triggerMillis = startAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                pendingIntent = buildPendingIntent(
+                    requestCode = task.id + START_ALARM_OFFSET,
+                    action      = ACTION_TASK_START,
+                    task        = task
+                )
             )
-        )
-        Log.d("AlarmScheduler", "Start-alert scheduled for '${task.name}' at $startAt")
+            Log.d("AlarmScheduler", "Start-alert scheduled for '${task.name}' at $startAt")
+        }
     }
 
     /** Cancel BOTH alarms (pre-alert + start) for a specific task. */
@@ -103,9 +109,34 @@ class AlarmScheduler @Inject constructor(
 
     // ── Private helpers ────────────────────────────────────────────────────────────
 
-    /** If [base] has already passed [now], push it to tomorrow. */
-    private fun nextTrigger(base: LocalDateTime, now: LocalDateTime): LocalDateTime =
-        if (base.isAfter(now)) base else base.plusDays(1)
+    /** Find the next valid trigger time based on task frequency/days. */
+    private fun nextTrigger(base: LocalDateTime, now: LocalDateTime, task: TaskEntity): LocalDateTime? {
+        var trigger = if (base.isAfter(now)) base else base.plusDays(1)
+        
+        // Loop until we find a day that matches the task's frequency
+        // Limit to 7 days to avoid infinite loop (though unlikely)
+        for (i in 0..7) {
+            if (isTaskScheduledForDay(task, trigger.toLocalDate())) {
+                return trigger
+            }
+            trigger = trigger.plusDays(1)
+        }
+        return null
+    }
+
+    private fun isTaskScheduledForDay(task: TaskEntity, date: LocalDate): Boolean {
+        val dayName = date.dayOfWeek.name.take(3) // "MON", "TUE", etc.
+        val freq = task.repeatDays
+        
+        return when {
+            freq == "ONCE" -> date == LocalDate.now() // For ONCE, we only schedule for today
+            freq == "DAILY" -> true
+            freq == "WEEKDAYS" -> !setOf("SAT", "SUN").contains(dayName)
+            freq == "WEEKENDS" -> setOf("SAT", "SUN").contains(dayName)
+            freq.startsWith("[") -> freq.contains(dayName)
+            else -> false
+        }
+    }
 
     private fun setAlarm(triggerMillis: Long, pendingIntent: PendingIntent) {
         try {
