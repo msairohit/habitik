@@ -1,4 +1,4 @@
-package com.habitik.ui.screens.home
+package com.habitik.ui.screens.concentration
 
 import android.content.Context
 import android.content.Intent
@@ -8,12 +8,9 @@ import com.habitik.data.entity.TaskEntity
 import com.habitik.data.entity.TaskLogEntity
 import com.habitik.data.repository.TaskLogRepository
 import com.habitik.data.repository.TaskRepository
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
+import com.habitik.service.TimerForegroundService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import com.habitik.service.TimerForegroundService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,26 +18,30 @@ import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
-data class TaskDetailUiState(
+data class ConcentrationUiState(
     val task: TaskEntity? = null,
     val log: TaskLogEntity? = null,
     val status: String = "PENDING",
     val remainingTime: String = "00:00",
     val progress: Float = 0f,
-    val progressText: String = "",
     val isPaused: Boolean = false,
     val isFocusing: Boolean = false
 )
 
 @HiltViewModel
-class TaskDetailViewModel @Inject constructor(
+class ConcentrationViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val logRepository: TaskLogRepository,
+    val settingsManager: com.habitik.data.SettingsManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(TaskDetailUiState())
-    val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
+    fun setConcentrationModeActive(active: Boolean) {
+        settingsManager.isConcentrationModeActive.value = active
+    }
+
+    private val _uiState = MutableStateFlow(ConcentrationUiState())
+    val uiState: StateFlow<ConcentrationUiState> = _uiState.asStateFlow()
 
     private var currentTaskId: Int = 0
 
@@ -52,7 +53,7 @@ class TaskDetailViewModel @Inject constructor(
             updateState()
         }
         
-        // Ticker for progress
+        // Timer update ticker
         viewModelScope.launch {
             while (true) {
                 updateState()
@@ -70,90 +71,57 @@ class TaskDetailViewModel @Inject constructor(
 
         var remainingTime = "00:00"
         var progressVal = 0f
-        var progressText = ""
         var isFocusing = false
         var status = latestLog?.status ?: "PENDING"
 
-        when (task.measurementType) {
-            "COUNT" -> {
-                val doneLogs = allLogs.filter { it.status == "DONE" }.size
-                progressVal = if (task.repeatCount > 0) doneLogs.toFloat() / task.repeatCount else 0f
-                val percent = (progressVal * 100).toInt()
-                progressText = "$doneLogs / ${task.repeatCount} times ($percent%)"
-                isFocusing = false
+        val totalSeconds = task.durationMin * 60L
+        var remainingSeconds = 0L
+        
+        when (latestLog?.status) {
+            "RESUMED" -> {
+                val instant = java.time.Instant.ofEpochMilli(latestLog.startedAt ?: System.currentTimeMillis())
+                val startedAt = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault()).toLocalTime()
                 
-                status = if (doneLogs >= task.repeatCount) "DONE"
-                         else if (doneLogs > 0) "RESUMED"
-                         else "PENDING"
+                val totalSecs = latestLog.remainingDurationSec ?: (latestLog.remainingDurationMin?.toLong()?.times(60L) ?: (task.durationMin * 60L))
+                val endAt = startedAt.plusSeconds(totalSecs)
+                
+                remainingSeconds = Math.max(0, ChronoUnit.SECONDS.between(now, endAt))
+                isFocusing = true
+                status = "RESUMED"
             }
-            "QUANTITY" -> {
-                val totalDone = allLogs.filter { it.status == "DONE" }.sumOf { (it.completedValue ?: 0f).toDouble() }.toFloat()
-                progressVal = if (task.goalValue > 0) totalDone / task.goalValue else 0f
-                val percent = (progressVal * 100).toInt()
-                
-                val doneStr = if (totalDone % 1 == 0f) totalDone.toInt().toString() else totalDone.toString()
-                val goalStr = if (task.goalValue % 1 == 0f) task.goalValue.toInt().toString() else task.goalValue.toString()
-                
-                progressText = "$doneStr${task.goalUnit} / $goalStr${task.goalUnit} ($percent%)"
+            "PAUSED" -> {
+                remainingSeconds = latestLog.remainingDurationSec ?: (latestLog.remainingDurationMin?.toLong()?.times(60L) ?: (task.durationMin * 60L))
                 isFocusing = false
-                
-                status = if (totalDone >= task.goalValue) "DONE"
-                         else if (totalDone > 0) "RESUMED"
-                         else "PENDING"
+                status = "PAUSED"
             }
-            else -> { // TIME
-                var totalSeconds = task.durationMin * 60L
-                var remainingSeconds = 0L
-                
-                when (latestLog?.status) {
-                    "RESUMED" -> {
-                        val instant = java.time.Instant.ofEpochMilli(latestLog?.startedAt ?: System.currentTimeMillis())
-                        val startedAt = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault()).toLocalTime()
-                        
-                        val totalSecs = latestLog?.remainingDurationSec ?: (latestLog?.remainingDurationMin?.toLong()?.times(60L) ?: (task.durationMin * 60L))
-                        val endAt = startedAt.plusSeconds(totalSecs)
-                        
-                        remainingSeconds = Math.max(0, ChronoUnit.SECONDS.between(now, endAt))
-                        isFocusing = true
-                        status = "RESUMED"
-                    }
-                    "PAUSED" -> {
-                        remainingSeconds = latestLog?.remainingDurationSec ?: (latestLog?.remainingDurationMin?.toLong()?.times(60L) ?: (task.durationMin * 60L))
-                        isFocusing = false
-                        status = "PAUSED"
-                    }
-                    "DONE", "SKIPPED" -> {
-                        remainingSeconds = 0
-                        isFocusing = false
-                        status = latestLog?.status ?: "PENDING"
-                    }
-                    else -> {
-                        val start = if (task.startTime == "ANYTIME") LocalTime.MIDNIGHT else LocalTime.parse(task.startTime)
-                        val end = start.plusMinutes(task.durationMin.toLong())
-                        if (now.isBefore(start)) {
-                            remainingSeconds = task.durationMin * 60L
-                            isFocusing = false
-                            status = "PENDING"
-                        } else if (now.isAfter(end)) {
-                            remainingSeconds = 0
-                            isFocusing = false
-                            status = "DONE"
-                        } else {
-                            // In window but PENDING
-                            remainingSeconds = task.durationMin * 60L
-                            isFocusing = false
-                            status = "PENDING"
-                        }
-                    }
+            "DONE", "SKIPPED" -> {
+                remainingSeconds = 0
+                isFocusing = false
+                status = latestLog.status
+            }
+            else -> {
+                val start = if (task.startTime == "ANYTIME") LocalTime.MIDNIGHT else LocalTime.parse(task.startTime)
+                val end = start.plusMinutes(task.durationMin.toLong())
+                if (now.isBefore(start)) {
+                    remainingSeconds = task.durationMin * 60L
+                    isFocusing = false
+                    status = "PENDING"
+                } else if (now.isAfter(end)) {
+                    remainingSeconds = 0
+                    isFocusing = false
+                    status = "DONE"
+                } else {
+                    remainingSeconds = task.durationMin * 60L
+                    isFocusing = false
+                    status = "PENDING"
                 }
-                
-                val mins = remainingSeconds / 60
-                val secs = remainingSeconds % 60
-                remainingTime = String.format("%02d:%02d", mins, secs)
-                progressVal = if (totalSeconds > 0) (totalSeconds - remainingSeconds).toFloat() / totalSeconds else 1f
-                progressText = "${(progressVal * 100).toInt()}%"
             }
         }
+        
+        val mins = remainingSeconds / 60
+        val secs = remainingSeconds % 60
+        remainingTime = String.format("%02d:%02d", mins, secs)
+        progressVal = if (totalSeconds > 0) (totalSeconds - remainingSeconds).toFloat() / totalSeconds else 1f
 
         _uiState.update {
             it.copy(
@@ -161,7 +129,6 @@ class TaskDetailViewModel @Inject constructor(
                 status = status,
                 remainingTime = remainingTime,
                 progress = progressVal.coerceIn(0f, 1f),
-                progressText = progressText,
                 isPaused = status == "PAUSED",
                 isFocusing = isFocusing
             )
@@ -227,43 +194,17 @@ class TaskDetailViewModel @Inject constructor(
     fun onDoneTask() {
         val task = _uiState.value.task ?: return
         if (_uiState.value.status == "DONE") return
-        if (task.measurementType == "TIME") {
-            stopTimerService()
-        }
+        stopTimerService()
         viewModelScope.launch {
             val date = java.time.LocalDate.now().toString()
-            val logs = logRepository.getLogsForTask(task.id).first().filter { it.logDate == date }
-            val nextOccurrence = (logs.maxByOrNull { it.occurrence }?.occurrence ?: 0) + 1
-            
             logRepository.insertLog(
                 TaskLogEntity(
                     taskId = task.id,
                     logDate = date,
                     status = "DONE",
                     doneAt = System.currentTimeMillis(),
-                    occurrence = if (task.measurementType == "COUNT") nextOccurrence else 1,
-                    completedValue = if (task.measurementType == "COUNT") 1f else task.goalValue
-                )
-            )
-        }
-    }
-
-    fun onIncrementTask(value: Float = 1f) {
-        val task = _uiState.value.task ?: return
-        if (_uiState.value.status == "DONE") return
-        viewModelScope.launch {
-            val date = java.time.LocalDate.now().toString()
-            val logs = logRepository.getLogsForTask(task.id).first().filter { it.logDate == date }
-            val nextOccurrence = (logs.maxByOrNull { it.occurrence }?.occurrence ?: 0) + 1
-
-            logRepository.insertLog(
-                TaskLogEntity(
-                    taskId = task.id,
-                    logDate = date,
-                    status = "DONE",
-                    doneAt = System.currentTimeMillis(),
-                    occurrence = nextOccurrence,
-                    completedValue = value
+                    occurrence = 1,
+                    completedValue = task.goalValue
                 )
             )
         }

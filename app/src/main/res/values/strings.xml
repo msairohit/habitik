@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Habitik</string>
+    <string name="widget_name">Habitik Daily Routine</string>
+    <string name="widget_description">Complete your daily routine tasks directly from the home screen.</string>
 </resources>

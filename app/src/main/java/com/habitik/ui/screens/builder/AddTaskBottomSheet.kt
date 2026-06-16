@@ -45,6 +45,7 @@ fun AddTaskBottomSheet(
     var isImportant      by remember { mutableStateOf(taskToEdit?.isImportant ?: false) }
     var reminderMin      by remember { mutableStateOf(taskToEdit?.reminderMin?.toFloat() ?: 5f) }
     var showTimePicker   by remember { mutableStateOf(false) }
+    var isAnytime        by remember { mutableStateOf(taskToEdit?.startTime == "ANYTIME") }
 
     // Frequency state
     val freqOptions = listOf("ONCE", "DAILY", "WEEKDAYS", "WEEKENDS", "CUSTOM")
@@ -67,6 +68,14 @@ fun AddTaskBottomSheet(
     var repeatCount by remember { mutableStateOf(taskToEdit?.repeatCount?.toFloat() ?: 1f) }
     var goalValue by remember { mutableStateOf(taskToEdit?.goalValue?.toString() ?: "") }
     var goalUnit by remember { mutableStateOf(taskToEdit?.goalUnit ?: "") }
+    var quantityIncrement by remember { mutableStateOf(taskToEdit?.quantityIncrement?.toString() ?: "1.0") }
+
+    // Auto-toggle anytime for new count/quantity tasks
+    LaunchedEffect(measurementType) {
+        if (taskToEdit == null) {
+            isAnytime = (measurementType == "COUNT" || measurementType == "QUANTITY")
+        }
+    }
 
     // Manual entry states for syncing
     var durationText by remember { mutableStateOf(duration.toInt().toString()) }
@@ -84,8 +93,9 @@ fun AddTaskBottomSheet(
         }
     }
 
-    val initialHour = (taskToEdit?.startTime ?: initialStartTime)?.split(":")?.get(0)?.toIntOrNull() ?: 8
-    val initialMinute = (taskToEdit?.startTime ?: initialStartTime)?.split(":")?.get(1)?.toIntOrNull() ?: 0
+    val hasEditTime = taskToEdit?.startTime != null && taskToEdit.startTime != "ANYTIME"
+    val initialHour = (if (hasEditTime) taskToEdit?.startTime else initialStartTime)?.split(":")?.get(0)?.toIntOrNull() ?: 8
+    val initialMinute = (if (hasEditTime) taskToEdit?.startTime else initialStartTime)?.split(":")?.get(1)?.toIntOrNull() ?: 0
 
     val timePickerState = rememberTimePickerState(
         initialHour   = initialHour,
@@ -94,15 +104,16 @@ fun AddTaskBottomSheet(
     )
 
     // Conflict detection
-    val conflictingTask by remember(timePickerState.hour, timePickerState.minute, duration, existingTasks, measurementType) {
+    val conflictingTask by remember(timePickerState.hour, timePickerState.minute, duration, existingTasks, measurementType, isAnytime) {
         derivedStateOf {
+            if (isAnytime) return@derivedStateOf null
             if (measurementType != "TIME") return@derivedStateOf null
             val newStart = timePickerState.hour * 60 + timePickerState.minute
             val newEnd = newStart + duration.toInt()
             existingTasks.find { t ->
                 if (t.id == taskToEdit?.id) return@find false
                 if (t.measurementType != "TIME") return@find false
-                // Check if they share at least one day
+                if (t.startTime == "ANYTIME") return@find false
                 val shareDay = checkDayOverlap(frequency, selectedDays, t.repeatDays)
                 if (!shareDay) return@find false
 
@@ -118,7 +129,6 @@ fun AddTaskBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = sheetState,
         dragHandle       = {
-            // Custom drag handle – solid color pill
             Box(
                 Modifier
                     .padding(top = 14.dp, bottom = 8.dp)
@@ -135,7 +145,7 @@ fun AddTaskBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp)
-                .padding(bottom = 48.dp)
+                .padding(bottom = 32.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // ── Sheet title ───────────────────────────────────────────────
@@ -143,370 +153,646 @@ fun AddTaskBottomSheet(
                 if (taskToEdit == null) "Create Task" else "Edit Task",
                 style         = MaterialTheme.typography.displaySmall,
                 fontWeight    = FontWeight.Black,
-                letterSpacing = (-1).sp,
+                letterSpacing = (-1.5).sp,
                 color         = MaterialTheme.colorScheme.onBackground
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
 
             // ── Task Name ─────────────────────────────────────────────────
             SectionLabel("WHAT ARE YOU DOING?")
             Spacer(Modifier.height(8.dp))
-            TextField(
-                value         = name,
-                onValueChange = { name = it },
-                placeholder   = {
-                    Text(
-                        "Task name…",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                },
-                modifier  = Modifier.fillMaxWidth(),
-                colors    = TextFieldDefaults.colors(
-                    focusedContainerColor   = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor   = MaterialTheme.colorScheme.primary,
-                    unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                textStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                singleLine = true
-            )
-            Spacer(Modifier.height(28.dp))
-
-            // ── Category ──────────────────────────────────────────────────
-            SectionLabel("CATEGORY")
-            Spacer(Modifier.height(12.dp))
-            val categories = listOf("WORK", "HEALTH", "PERSONAL", "FAMILY", "SPIRITUAL", "OTHER")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(categories) { cat ->
-                    val catColor  = getCategoryColor(cat)
-                    val selected  = selectedCategory == cat
-                    Surface(
-                        onClick  = { selectedCategory = cat },
-                        shape    = RoundedCornerShape(18.dp),
-                        color    = if (selected) catColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                        border   = BorderStroke(
-                            1.dp,
-                            if (selected) catColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                        ),
-                        modifier = if (selected) Modifier.shadow(8.dp, RoundedCornerShape(18.dp), spotColor = catColor.copy(alpha = 0.4f))
-                                   else Modifier
-                    ) {
-                        Row(
-                            modifier          = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(catColor)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                cat,
-                                style      = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                                color      = if (selected) catColor else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(28.dp))
-
-            // ── Frequency ─────────────────────────────────────────────────
-            SectionLabel("FREQUENCY")
-            Spacer(Modifier.height(12.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(freqOptions) { opt ->
-                    val selected = frequency == opt
-                    FilterChip(
-                        selected = selected,
-                        onClick = { frequency = opt },
-                        label = { Text(opt) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = selected,
-                            borderColor = MaterialTheme.colorScheme.outlineVariant,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                TextField(
+                    value         = name,
+                    onValueChange = { name = it },
+                    placeholder   = {
+                        Text(
+                            "e.g., Morning Meditations, Gym, Study...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
-                    )
-                }
-            }
-            
-            if (frequency == "CUSTOM") {
-                Spacer(Modifier.height(8.dp))
-                val days = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(days) { day ->
-                        val selected = selectedDays.contains(day)
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                .clickable { 
-                                    selectedDays = if (selected) selectedDays - day else selectedDays + day
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                day.take(1),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(28.dp))
-
-            // ── Measurement ───────────────────────────────────────────────
-            SectionLabel("MEASUREMENT")
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf("TIME", "COUNT", "QUANTITY").forEach { type ->
-                    val selected = measurementType == type
-                    Surface(
-                        onClick = { measurementType = type },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            Modifier.padding(vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                when(type) {
-                                    "TIME" -> Icons.Default.Timer
-                                    "COUNT" -> Icons.Default.Repeat
-                                    else -> Icons.Default.BarChart
-                                },
-                                contentDescription = null,
-                                tint = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                type,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                    },
+                    modifier  = Modifier.fillMaxWidth(),
+                    colors    = TextFieldDefaults.colors(
+                        focusedContainerColor   = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor   = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    singleLine = true
+                )
             }
             Spacer(Modifier.height(20.dp))
 
-            // ── Time & Duration / Count / Quantity ────────────────────────
-            // Conflict warning (only for TIME)
-            if (measurementType == "TIME" && conflictingTask != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.padding(bottom = 16.dp).fillMaxWidth()
-                ) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Conflict Detected", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                            Text("Overlaps with '${conflictingTask!!.name}'", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            }
-
-            // Start Time (Always visible)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Surface(
-                    onClick  = { showTimePicker = true },
-                    modifier = Modifier.weight(1f),
-                    shape    = RoundedCornerShape(22.dp),
-                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                    border   = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text("START TIME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            String.format("%02d:%02d", timePickerState.hour, timePickerState.minute),
-                            style         = MaterialTheme.typography.titleLarge,
-                            fontWeight    = FontWeight.Black,
-                            color         = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                }
-
-                if (measurementType == "TIME") {
-                    // Duration
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape    = RoundedCornerShape(22.dp),
-                        color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                        border   = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
-                    ) {
-                        Column(modifier = Modifier.padding(18.dp)) {
-                            Text("DURATION", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(4.dp))
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                BasicTextField(
-                                    value = durationText,
-                                    onValueChange = { 
-                                        durationText = it
-                                        it.toIntOrNull()?.let { valNew -> 
-                                            duration = valNew.toFloat().coerceIn(1f, 1440f) 
-                                        }
-                                    },
-                                    textStyle = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Black,
-                                        color      = MaterialTheme.colorScheme.onBackground
-                                    ),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.width(IntrinsicSize.Min)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "MIN",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            if (duration >= 60) {
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    formatDuration(duration.toInt()),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-
-            if (measurementType == "TIME") {
-                Spacer(Modifier.height(14.dp))
-                Slider(
-                    value = duration,
-                    onValueChange = { duration = it },
-                    valueRange = 5f..480f,
-                    steps = 94, // 5 min increments
-                    colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.secondary, activeTrackColor = MaterialTheme.colorScheme.secondary)
-                )
-                Spacer(Modifier.height(20.dp))
-            } else if (measurementType == "COUNT") {
-                Surface(
-                    shape  = RoundedCornerShape(22.dp),
-                    color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(18.dp).fillMaxWidth()) {
-                        Text("TIMES PER DAY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            BasicTextField(
-                                value = repeatCountText,
-                                onValueChange = { 
-                                    repeatCountText = it
-                                    it.toIntOrNull()?.let { valNew -> 
-                                        repeatCount = valNew.toFloat().coerceIn(1f, 100f) 
-                                    }
-                                },
-                                textStyle = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color      = MaterialTheme.colorScheme.onBackground
+            // ── Card 1: Details (Category & Frequency) ────────────────────
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Category
+                    SectionLabel("CATEGORY")
+                    Spacer(Modifier.height(10.dp))
+                    val categories = listOf("WORK", "HEALTH", "PERSONAL", "FAMILY", "SPIRITUAL", "OTHER")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(categories) { cat ->
+                            val catColor  = getCategoryColor(cat)
+                            val selected  = selectedCategory == cat
+                            Surface(
+                                onClick  = { selectedCategory = cat },
+                                shape    = RoundedCornerShape(14.dp),
+                                color    = if (selected) catColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                                border   = BorderStroke(
+                                    1.dp,
+                                    if (selected) catColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                                 ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.width(IntrinsicSize.Min)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "TIMES",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = if (selected) Modifier.shadow(6.dp, RoundedCornerShape(14.dp), spotColor = catColor.copy(alpha = 0.3f))
+                                           else Modifier
+                            ) {
+                                Row(
+                                    modifier          = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(catColor)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        cat,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                                        color = if (selected) catColor else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+
+                    // Frequency
+                    SectionLabel("FREQUENCY")
+                    Spacer(Modifier.height(10.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(freqOptions) { opt ->
+                            val selected = frequency == opt
+                            FilterChip(
+                                selected = selected,
+                                onClick = { frequency = opt },
+                                label = { Text(opt) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selected,
+                                    borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary
+                                )
                             )
                         }
-                        Slider(
-                            value = repeatCount,
-                            onValueChange = { repeatCount = it },
-                            valueRange = 1f..20f,
-                            steps = 19,
-                            colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.secondary, activeTrackColor = MaterialTheme.colorScheme.secondary)
-                        )
+                    }
+                    
+                    if (frequency == "CUSTOM") {
+                        Spacer(Modifier.height(12.dp))
+                        val days = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(days) { day ->
+                                val selected = selectedDays.contains(day)
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .shadow(if (selected) 4.dp else 0.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                        .clip(CircleShape)
+                                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                        .border(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                                        .clickable { 
+                                            selectedDays = if (selected) selectedDays - day else selectedDays + day
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        day.take(1),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-            } else {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    TextField(
-                        value = goalValue,
-                        onValueChange = { goalValue = it },
-                        label = { Text("GOAL AMOUNT") },
-                        modifier = Modifier.weight(1f),
-                        colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
-                    )
-                    TextField(
-                        value = goalUnit,
-                        onValueChange = { goalUnit = it },
-                        label = { Text("UNIT (ml, km, etc)") },
-                        modifier = Modifier.weight(1f),
-                        colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
-                    )
+            }
+            Spacer(Modifier.height(18.dp))
+
+            // ── Card 2: Measurement & Timing ──────────────────────────────
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    SectionLabel("MEASUREMENT")
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("TIME", "COUNT", "QUANTITY").forEach { type ->
+                            val selected = measurementType == type
+                            val activeColor = MaterialTheme.colorScheme.secondary
+                            Surface(
+                                onClick = { measurementType = type },
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (selected) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                                border = BorderStroke(1.dp, if (selected) activeColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    Modifier.padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        when(type) {
+                                            "TIME" -> Icons.Default.Timer
+                                            "COUNT" -> Icons.Default.Repeat
+                                            else -> Icons.Default.BarChart
+                                        },
+                                        contentDescription = null,
+                                        tint = if (selected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        type,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (selected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+
+                    // Conflict warning (only for TIME)
+                    if (measurementType == "TIME" && conflictingTask != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.padding(bottom = 16.dp).fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text("Conflict Detected", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    Text("Overlaps with '${conflictingTask!!.name}'", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                                }
+                            }
+                        }
+                    }
+
+                    // Anytime Toggle Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Anytime / All Day", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("No fixed start hour required", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Switch(
+                            checked = isAnytime,
+                            onCheckedChange = { isAnytime = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.secondary)
+                        )
+                    }
+
+                    if (!isAnytime) {
+                        HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+                        
+                        // Timing fields
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Surface(
+                                onClick  = { showTimePicker = true },
+                                modifier = Modifier.weight(1f),
+                                shape    = RoundedCornerShape(16.dp),
+                                color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                                border   = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text("START TIME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        String.format("%02d:%02d", timePickerState.hour, timePickerState.minute),
+                                        style         = MaterialTheme.typography.titleMedium,
+                                        fontWeight    = FontWeight.Black,
+                                        color         = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+
+                            if (measurementType == "TIME") {
+                                // Duration field
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape    = RoundedCornerShape(16.dp),
+                                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                                    border   = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Text("DURATION", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.height(4.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp),
+                                                tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            BasicTextField(
+                                                value = durationText,
+                                                onValueChange = { 
+                                                    durationText = it
+                                                    it.toIntOrNull()?.let { valNew -> 
+                                                        duration = valNew.toFloat().coerceIn(1f, 1440f) 
+                                                    }
+                                                },
+                                                textStyle = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Black,
+                                                    color      = MaterialTheme.colorScheme.onBackground
+                                                ),
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                modifier = Modifier.width(IntrinsicSize.Min)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                "min (${formatDuration(duration.toInt())})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+
+                        if (measurementType == "TIME") {
+                            Spacer(Modifier.height(10.dp))
+                            Slider(
+                                value = duration,
+                                onValueChange = { duration = it },
+                                valueRange = 5f..120f,
+                                steps = 22,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.secondary,
+                                    activeTrackColor = MaterialTheme.colorScheme.secondary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                                )
+                            )
+                        }
+                    }
+
+                    if (measurementType == "COUNT") {
+                        Spacer(Modifier.height(16.dp))
+                        Surface(
+                            shape  = RoundedCornerShape(16.dp),
+                            color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp).fillMaxWidth()) {
+                                Text("TIMES PER DAY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    BasicTextField(
+                                        value = repeatCountText,
+                                        onValueChange = { 
+                                            repeatCountText = it
+                                            it.toIntOrNull()?.let { valNew -> 
+                                                repeatCount = valNew.toFloat().coerceIn(1f, 100f) 
+                                            }
+                                        },
+                                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Black,
+                                            color      = MaterialTheme.colorScheme.onBackground
+                                        ),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.width(IntrinsicSize.Min)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "TIMES",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Slider(
+                                    value = repeatCount,
+                                    onValueChange = { repeatCount = it },
+                                    valueRange = 1f..20f,
+                                    steps = 19,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = MaterialTheme.colorScheme.secondary,
+                                        activeTrackColor = MaterialTheme.colorScheme.secondary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                                    )
+                                )
+                            }
+                        }
+                    } else if (measurementType == "QUANTITY") {
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── Goal Amount row ────────────────────────────────
+                        Surface(
+                            shape  = RoundedCornerShape(16.dp),
+                            color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text("GOAL AMOUNT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    BasicTextField(
+                                        value = goalValue,
+                                        onValueChange = { goalValue = it },
+                                        textStyle = MaterialTheme.typography.headlineMedium.copy(
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        ),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (goalUnit.isNotEmpty()) {
+                                        Text(
+                                            goalUnit,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // ── Unit chips ────────────────────────────────────
+                        val unitOptions = listOf("ml", "l", "km", "m", "cups", "pages", "g", "kg", "cal", "times")
+                        var isCustomUnit by remember { mutableStateOf(goalUnit.isNotEmpty() && goalUnit !in unitOptions) }
+                        var customUnitText by remember { mutableStateOf(if (isCustomUnit) goalUnit else "") }
+
+                        SectionLabel("UNIT")
+                        Spacer(Modifier.height(8.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(unitOptions) { unit ->
+                                val selected = !isCustomUnit && goalUnit == unit
+                                Surface(
+                                    onClick = {
+                                        goalUnit = unit
+                                        isCustomUnit = false
+                                    },
+                                    shape  = RoundedCornerShape(12.dp),
+                                    color  = if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (selected) MaterialTheme.colorScheme.secondary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    )
+                                ) {
+                                    Text(
+                                        unit,
+                                        style      = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
+                                        color      = if (selected) MaterialTheme.colorScheme.secondary
+                                                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier   = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                            item {
+                                // Custom chip
+                                Surface(
+                                    onClick = { isCustomUnit = true },
+                                    shape  = RoundedCornerShape(12.dp),
+                                    color  = if (isCustomUnit) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isCustomUnit) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp),
+                                            tint = if (isCustomUnit) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "Custom",
+                                            style      = MaterialTheme.typography.labelLarge,
+                                            fontWeight = if (isCustomUnit) FontWeight.Black else FontWeight.SemiBold,
+                                            color      = if (isCustomUnit) MaterialTheme.colorScheme.primary
+                                                         else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (isCustomUnit) {
+                            Spacer(Modifier.height(10.dp))
+                            Surface(
+                                shape  = RoundedCornerShape(14.dp),
+                                color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(10.dp))
+                                    BasicTextField(
+                                        value = customUnitText,
+                                        onValueChange = {
+                                            customUnitText = it
+                                            goalUnit = it
+                                        },
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        ),
+                                        decorationBox = { inner ->
+                                            if (customUnitText.isEmpty()) {
+                                                Text("Enter unit (e.g. km, steps, oz…)", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                            }
+                                            inner()
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── Log Increment ─────────────────────────────────
+                        SectionLabel("LOG INCREMENT")
+                        Spacer(Modifier.height(8.dp))
+
+                        // Compute sensible preset increments based on unit
+                        val incrementPresets = remember(goalUnit) {
+                            when (goalUnit.lowercase()) {
+                                "ml"    -> listOf("50", "100", "150", "200", "250", "500")
+                                "l"     -> listOf("0.1", "0.25", "0.5", "1")
+                                "km"    -> listOf("0.5", "1", "2", "5", "10")
+                                "m"     -> listOf("10", "50", "100", "200", "500")
+                                "g"     -> listOf("10", "25", "50", "100", "250")
+                                "kg"    -> listOf("0.1", "0.25", "0.5", "1")
+                                "cal"   -> listOf("50", "100", "200", "250", "500")
+                                "pages" -> listOf("1", "5", "10", "20")
+                                "cups"  -> listOf("0.5", "1", "2")
+                                "times" -> listOf("1", "2", "5", "10")
+                                else    -> listOf("1", "5", "10", "25", "50")
+                            }
+                        }
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(incrementPresets) { preset ->
+                                val selected = quantityIncrement == preset
+                                Surface(
+                                    onClick = { quantityIncrement = preset },
+                                    shape  = RoundedCornerShape(12.dp),
+                                    color  = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    )
+                                ) {
+                                    Text(
+                                        "$preset ${goalUnit}",
+                                        style      = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
+                                        color      = if (selected) MaterialTheme.colorScheme.primary
+                                                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier   = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+
+                        // Manual override field
+                        Surface(
+                            shape  = RoundedCornerShape(14.dp),
+                            color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(10.dp))
+                                BasicTextField(
+                                    value = quantityIncrement,
+                                    onValueChange = { quantityIncrement = it },
+                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    decorationBox = { inner ->
+                                        if (quantityIncrement.isEmpty()) {
+                                            Text("Custom increment (e.g. 250)", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        }
+                                        inner()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (goalUnit.isNotEmpty()) {
+                                    Text(
+                                        goalUnit,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(18.dp))
 
-            // ── Options card ──────────────────────────────────────────────
+            // ── Card 3: Preferences & Alerts ──────────────────────────────
             Surface(
                 shape  = RoundedCornerShape(24.dp),
-                color  = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                color  = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     // Important toggle
                     Row(
                         Modifier.fillMaxWidth(),
@@ -515,7 +801,7 @@ fun AddTaskBottomSheet(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
-                                modifier = Modifier.size(40.dp),
+                                modifier = Modifier.size(38.dp),
                                 shape    = CircleShape,
                                 color    = if (isImportant) Color(0xFFFFB800).copy(alpha = 0.15f)
                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
@@ -525,11 +811,12 @@ fun AddTaskBottomSheet(
                                         if (isImportant) Icons.Default.Star else Icons.Default.StarBorder,
                                         contentDescription = null,
                                         tint               = if (isImportant) Color(0xFFFFB800)
-                                                             else MaterialTheme.colorScheme.onSurfaceVariant
+                                                             else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
-                            Spacer(Modifier.width(14.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column {
                                 Text("Important Task", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("Boosts your streaks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -542,82 +829,86 @@ fun AddTaskBottomSheet(
                         )
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                    if (!isAnytime) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
 
-                    // Pre-alert row
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                modifier = Modifier.size(40.dp),
-                                shape    = CircleShape,
-                                color    = MaterialTheme.colorScheme.secondary.copy(alpha = 0.13f)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.Notifications,
-                                        contentDescription = null,
-                                        tint               = MaterialTheme.colorScheme.secondary
-                                    )
+                        // Pre-alert row
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.size(38.dp),
+                                    shape    = CircleShape,
+                                    color    = MaterialTheme.colorScheme.secondary.copy(alpha = 0.13f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.Notifications,
+                                            contentDescription = null,
+                                            tint               = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text("Pre-alert", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text("${reminderMin.toInt()} minutes before", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            Spacer(Modifier.width(14.dp))
-                            Column {
-                                Text("Pre-alert", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${reminderMin.toInt()} minutes before", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Slider(
-                            value         = reminderMin,
-                            onValueChange = { reminderMin = it },
-                            valueRange    = 0f..30f,
-                            steps         = 5,
-                            modifier      = Modifier.width(110.dp),
-                            colors        = SliderDefaults.colors(
-                                thumbColor       = MaterialTheme.colorScheme.secondary,
-                                activeTrackColor = MaterialTheme.colorScheme.secondary
+                            Slider(
+                                value         = reminderMin,
+                                onValueChange = { reminderMin = it },
+                                valueRange    = 0f..30f,
+                                steps         = 5,
+                                modifier      = Modifier.width(100.dp),
+                                colors        = SliderDefaults.colors(
+                                    thumbColor       = MaterialTheme.colorScheme.secondary,
+                                    activeTrackColor = MaterialTheme.colorScheme.secondary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(30.dp))
 
             // ── Save Button ───────────────────────────────────────────────
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val secondaryColor = MaterialTheme.colorScheme.secondary
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
-                    .shadow(16.dp, RoundedCornerShape(20.dp), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    .clip(RoundedCornerShape(20.dp))
+                    .height(56.dp)
+                    .shadow(12.dp, RoundedCornerShape(18.dp), spotColor = primaryColor.copy(alpha = 0.4f))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(
                         if (name.isNotBlank())
-                            MaterialTheme.colorScheme.primary
+                            Brush.linearGradient(colors = listOf(primaryColor, secondaryColor))
                         else
-                            MaterialTheme.colorScheme.surfaceVariant
+                            SolidColor(MaterialTheme.colorScheme.surfaceVariant)
                     )
                     .border(
                         1.dp,
                         if (name.isNotBlank()) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                        RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                TextButton(
-                    onClick  = {
+                        RoundedCornerShape(18.dp)
+                    )
+                    .clickable(enabled = name.isNotBlank()) {
                         val repeatDaysStr = if (frequency == "CUSTOM") {
                             selectedDays.joinToString(prefix = "[\"", postfix = "\"]", separator = "\",\"")
                         } else frequency
 
                         val task = TaskEntity(
+                            id          = taskToEdit?.id ?: 0,
                             name        = name,
                             category    = selectedCategory,
                             colorHex    = "",
-                            startTime   = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute),
-                            durationMin = duration.toInt(),
+                            startTime   = if (isAnytime) "ANYTIME" else String.format("%02d:%02d", timePickerState.hour, timePickerState.minute),
+                            durationMin = if (isAnytime) 5 else duration.toInt(),
                             isFlexible  = false,
                             flexWindowEnd = null,
                             repeatDays  = repeatDaysStr,
@@ -626,21 +917,20 @@ fun AddTaskBottomSheet(
                             goalValue = goalValue.toFloatOrNull() ?: 0f,
                             goalUnit = goalUnit,
                             isImportant = isImportant,
-                            reminderMin = reminderMin.toInt()
+                            reminderMin = if (isAnytime) 0 else reminderMin.toInt(),
+                            quantityIncrement = quantityIncrement.toFloatOrNull() ?: 1f
                         )
                         onSave(task)
                     },
-                    modifier = Modifier.fillMaxSize(),
-                    enabled  = name.isNotBlank()
-                ) {
-                    Text(
-                        "SAVE TASK",
-                        style         = MaterialTheme.typography.titleLarge,
-                        fontWeight    = FontWeight.Black,
-                        letterSpacing = 1.sp,
-                        color         = Color.White
-                    )
-                }
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "SAVE TASK",
+                    style         = MaterialTheme.typography.titleMedium,
+                    fontWeight    = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    color         = if (name.isNotBlank()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
             }
         }
     }

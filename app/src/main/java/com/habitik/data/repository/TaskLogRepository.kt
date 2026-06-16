@@ -23,4 +23,6 @@ class TaskLogRepository @Inject constructor(
     suspend fun insertLog(log: TaskLogEntity): Long = taskLogDao.insertLog(log)
     
     suspend fun updateLog(log: TaskLogEntity) = taskLogDao.updateLog(log)
+
+    fun getAllLogs(): Flow<List<TaskLogEntity>> = taskLogDao.getAllLogs()
 }

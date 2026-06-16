@@ -29,15 +29,6 @@ fun CircularCountdownRing(
         label         = "RingProgress"
     )
 
-    // Continuous subtle pulse on the glow
-    val infiniteTransition = rememberInfiniteTransition(label = "ringPulse")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.25f,
-        targetValue   = 0.45f,
-        animationSpec = infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label         = "glowAlpha"
-    )
-
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
             val strokeMain  = 14.dp.toPx()
@@ -60,7 +51,7 @@ fun CircularCountdownRing(
                 sweepAngle = 360f * animatedProgress,
                 useCenter  = false,
                 style      = Stroke(width = strokeGlow1, cap = StrokeCap.Round),
-                alpha      = glowAlpha
+                alpha      = 0.3f
             )
 
             // Mid glow

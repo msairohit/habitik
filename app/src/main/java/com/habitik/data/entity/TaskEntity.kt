@@ -21,5 +21,6 @@ data class TaskEntity(
     val isImportant: Boolean = false, // true = tracked in streak
     val reminderMin: Int = 5,      // Pre-alert minutes before task
     val isActive: Boolean = true,  // Soft delete
+    val quantityIncrement: Float = 1f, // Default increment amount for quantity tasks
     val createdAt: Long = System.currentTimeMillis()
 )

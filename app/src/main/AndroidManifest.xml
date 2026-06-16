@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
         android:name=".HabitikApp"
@@ -27,19 +28,48 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter android:label="task_detail">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="habitik" android:host="task_detail" />
+            </intent-filter>
         </activity>
-
-        <service 
-            android:name=".service.RoutineService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false" />
 
         <receiver android:name=".service.RoutineReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="ACTION_MARK_DONE" />
                 <action android:name="ACTION_ROUTINE_ALARM" />
                 <action android:name="ACTION_TASK_START" />
+                <action android:name="ACTION_PAUSE_TIMER" />
+                <action android:name="ACTION_DONE_TIMER" />
             </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".service.TimerForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Live tracking of task timer progress" />
+        </service>
+
+        <receiver android:name=".service.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.habitik.widget.HabitWidgetReceiver"
+            android:label="@string/widget_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/habit_widget_info" />
         </receiver>
     </application>
 

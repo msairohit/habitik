@@ -26,6 +26,7 @@ import com.habitik.ui.theme.*
 fun TaskDetailScreen(
     taskId: Int,
     viewModel: TaskDetailViewModel = hiltViewModel(),
+    onNavigateToConcentration: (Int) -> Unit = {},
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -193,7 +194,23 @@ fun TaskDetailScreen(
                         }
                     }
                 }
-                uiState.progress < 1f -> {
+                uiState.status == "DONE" || uiState.progress >= 1f -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF4CAF50).copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
+                            Spacer(Modifier.width(8.dp))
+                            Text("COMPLETED", color = Color(0xFF4CAF50), fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+                else -> {
                     if (task.measurementType == "TIME") {
                         Button(
                             onClick = {
@@ -220,6 +237,30 @@ fun TaskDetailScreen(
                                 fontSize = 18.sp
                             )
                         }
+                        
+                        Spacer(Modifier.height(12.dp))
+                        
+                        OutlinedButton(
+                            onClick = { onNavigateToConcentration(task.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, color.copy(alpha = 0.5f))
+                        ) {
+                            Icon(
+                                Icons.Default.Fullscreen,
+                                contentDescription = "Fullscreen Focus",
+                                tint = color
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                "FULLSCREEN CONCENTRATION",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = color
+                            )
+                        }
                     } else if (task.measurementType == "COUNT") {
                         Button(
                             onClick = { viewModel.onIncrementTask(1f) },
@@ -243,7 +284,11 @@ fun TaskDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 val unit = task.goalUnit.lowercase()
+                                val baseIncrement = if (task.quantityIncrement > 0f) task.quantityIncrement else 1f
                                 val amounts = when {
+                                    task.quantityIncrement > 0f && task.quantityIncrement != 1f -> {
+                                        listOf(baseIncrement, baseIncrement * 2f, baseIncrement * 4f)
+                                    }
                                     unit.contains("ml") || unit.contains("water") -> listOf(100f, 250f, 500f)
                                     unit.contains("g") || unit.contains("kcal") -> listOf(50f, 100f, 200f)
                                     else -> listOf(1f, 5f, 10f)
@@ -256,7 +301,8 @@ fun TaskDetailScreen(
                                         shape = RoundedCornerShape(16.dp),
                                         border = androidx.compose.foundation.BorderStroke(2.dp, color.copy(alpha = 0.3f))
                                     ) {
-                                        Text("+${amount.toInt()}", fontWeight = FontWeight.Bold, color = color)
+                                        val displayVal = if (amount % 1f == 0f) amount.toInt().toString() else amount.toString()
+                                        Text("+$displayVal", fontWeight = FontWeight.Bold, color = color)
                                     }
                                 }
                             }
@@ -322,22 +368,6 @@ fun TaskDetailScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("MARK AS COMPLETE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                    }
-                }
-                else -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(64.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFF4CAF50).copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                            Spacer(Modifier.width(8.dp))
-                            Text("COMPLETED", color = Color(0xFF4CAF50), fontWeight = FontWeight.Black)
-                        }
                     }
                 }
             }

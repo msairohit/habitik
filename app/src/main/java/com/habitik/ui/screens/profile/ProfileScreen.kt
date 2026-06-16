@@ -9,6 +9,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,10 +23,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.habitik.ui.screens.profile.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(
+    viewModel: ProfileViewModel = hiltViewModel(),
+    onNavigateToAdmin: () -> Unit
+) {
+    val savedThemeName = viewModel.savedThemeName
+    val totalActiveTasks by viewModel.totalActiveTasks.collectAsState()
+    val totalCompletedTasks by viewModel.totalCompletedTasks.collectAsState()
+    val bestStreak by viewModel.bestStreak.collectAsState()
+    val scrollState = rememberScrollState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -33,7 +48,9 @@ fun ProfileScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .verticalScroll(scrollState)
+                .padding(24.dp)
+                .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
@@ -74,18 +91,24 @@ fun ProfileScreen() {
             // Stats Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatCard(
                     modifier = Modifier.weight(1f),
-                    label = "Tasks",
-                    value = "128",
+                    label = "Completed",
+                    value = totalCompletedTasks.toString(),
                     color = MaterialTheme.colorScheme.primary
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
+                    label = "Active",
+                    value = totalActiveTasks.toString(),
+                    color = Color(0xFF4CAF50)
+                )
+                StatCard(
+                    modifier = Modifier.weight(1f),
                     label = "Streak",
-                    value = "12",
+                    value = "$bestStreak🔥",
                     color = Color(0xFFFFB800)
                 )
             }
@@ -102,6 +125,8 @@ fun ProfileScreen() {
                     SettingItem("Account Settings")
                     Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     SettingItem("Notifications")
+                    Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                    SettingItem("Admin Settings Portal", onClick = onNavigateToAdmin)
                     Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     
                     // Theme Selection Section
@@ -132,6 +157,7 @@ fun ProfileScreen() {
                                         )
                                         .clickable {
                                             ThemeManager.currentTheme.value = theme
+                                            viewModel.saveTheme(theme.name)
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -189,10 +215,11 @@ private fun StatCard(
 }
 
 @Composable
-private fun SettingItem(text: String) {
+private fun SettingItem(text: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

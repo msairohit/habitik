@@ -60,9 +60,10 @@ class AlarmScheduler @Inject constructor(
         // ── 1. Pre-alert ──────────────────────────────────────────────────────────
         if (task.reminderMin > 0) {
             val preAlertAt = nextTrigger(
-                base = LocalDateTime.of(LocalDate.now(), startTime).minusMinutes(task.reminderMin.toLong()),
+                startTime = startTime,
                 now = now,
-                task = task
+                task = task,
+                isPreAlert = true
             )
             if (preAlertAt != null) {
                 setAlarm(
@@ -79,9 +80,10 @@ class AlarmScheduler @Inject constructor(
 
         // ── 2. Task-start alert ───────────────────────────────────────────────────
         val startAt = nextTrigger(
-            base = LocalDateTime.of(LocalDate.now(), startTime),
+            startTime = startTime,
             now  = now,
-            task = task
+            task = task,
+            isPreAlert = false
         )
         if (startAt != null) {
             setAlarm(
@@ -110,16 +112,22 @@ class AlarmScheduler @Inject constructor(
     // ── Private helpers ────────────────────────────────────────────────────────────
 
     /** Find the next valid trigger time based on task frequency/days. */
-    private fun nextTrigger(base: LocalDateTime, now: LocalDateTime, task: TaskEntity): LocalDateTime? {
-        var trigger = if (base.isAfter(now)) base else base.plusDays(1)
-        
-        // Loop until we find a day that matches the task's frequency
-        // Limit to 7 days to avoid infinite loop (though unlikely)
-        for (i in 0..7) {
-            if (isTaskScheduledForDay(task, trigger.toLocalDate())) {
-                return trigger
+    private fun nextTrigger(startTime: LocalTime, now: LocalDateTime, task: TaskEntity, isPreAlert: Boolean): LocalDateTime? {
+        var date = LocalDate.now()
+        // Loop up to 8 days to find the next scheduled occurrence that is in the future
+        for (i in 0..8) {
+            if (isTaskScheduledForDay(task, date)) {
+                val taskDateTime = LocalDateTime.of(date, startTime)
+                val triggerDateTime = if (isPreAlert) {
+                    taskDateTime.minusMinutes(task.reminderMin.toLong())
+                } else {
+                    taskDateTime
+                }
+                if (triggerDateTime.isAfter(now)) {
+                    return triggerDateTime
+                }
             }
-            trigger = trigger.plusDays(1)
+            date = date.plusDays(1)
         }
         return null
     }

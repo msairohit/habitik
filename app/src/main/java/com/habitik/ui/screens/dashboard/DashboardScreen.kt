@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,9 +39,13 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToBuilder: () -> Unit
+    onNavigateToBuilder: () -> Unit,
+    onNavigateToConcentration: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val taskStreaks by viewModel.taskStreaks.collectAsState()
+    val weeklyCompletionRate by viewModel.weeklyCompletionRate.collectAsState()
+    val categoryCompletion by viewModel.categoryCompletion.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(modifier = Modifier.fillMaxSize())
@@ -74,8 +79,8 @@ fun DashboardScreen(
                                                    else if (item.status == "DONE" && item.task.measurementType == "TIME") "DONE"
                                                    else if (item.task.measurementType == "TIME") {
                                                        if (item.task.id == uiState.currentTask?.id) uiState.remainingTime 
-                                                       else item.progressText.split(" ").first()
-                                                   } else item.progressText.split(" ").first(),
+                                                       else item.remainingTime
+                                                   } else item.remainingTime,
                                     progressLabel = if (item.task.measurementType == "TIME") "REMAINING" else "DONE",
                                     isDoneMode    = item.task.measurementType != "TIME",
                                     progress      = item.progress,
@@ -85,7 +90,8 @@ fun DashboardScreen(
                                     onPause       = { viewModel.onPauseTask(item.task) },
                                     onResume      = { viewModel.onResumeTask(item.task) },
                                     onSnooze      = { viewModel.onSnoozeTask() },
-                                    onIncrement   = { viewModel.onIncrementTask(item.task) }
+                                    onIncrement   = { viewModel.onIncrementTask(item.task, item.task.quantityIncrement) },
+                                    onEnterConcentration = { onNavigateToConcentration(item.task.id) }
                                 )
                             }
                             
@@ -115,59 +121,224 @@ fun DashboardScreen(
                 Spacer(Modifier.height(36.dp))
             }
 
-            // Placeholder for widgets
+            // Overview section
+
             item {
                 Text(
                     "Overview",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
                 )
             }
             
             item {
-                WidgetPlaceholder("Daily Progress", MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(16.dp))
+                TodayProgressWidget(tasks = uiState.tasksWithStatus)
             }
             item {
-                WidgetPlaceholder("Habit Streak", Color(0xFFFFB800))
-                Spacer(Modifier.height(16.dp))
+                WeeklyCalendarWidget(completionRates = weeklyCompletionRate)
             }
             item {
-                WidgetPlaceholder("Energy Level", MaterialTheme.colorScheme.secondary)
-                Spacer(Modifier.height(16.dp))
+                StreaksWidget(tasks = uiState.allTasks, streaks = taskStreaks)
+            }
+            item {
+                CategoryBreakdownWidget(categoryCounts = categoryCompletion)
             }
         }
     }
 }
 
 @Composable
-private fun WidgetPlaceholder(title: String, color: Color) {
+private fun TodayProgressWidget(tasks: List<com.habitik.ui.screens.home.TaskStatusInfo>) {
+    val doneCount = tasks.count { it.status == "DONE" }
+    val totalCount = tasks.size
+    val fraction = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
+    
     Surface(
-        modifier = Modifier.fillMaxWidth().height(100.dp),
         shape = RoundedCornerShape(24.dp),
-        color = color.copy(alpha = 0.05f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.1f))
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Today's Progress", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("$doneCount / $totalCount completed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(12.dp))
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklyCalendarWidget(completionRates: Map<String, Float>) {
+    val currentWeekDays = remember {
+        val monday = java.time.LocalDate.now().with(java.time.DayOfWeek.MONDAY)
+        (0..6).map { monday.plusDays(it.toLong()) }
+    }
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text("Weekly Consistency", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                currentWeekDays.forEach { date ->
+                    val dayOfWeek = date.dayOfWeek.name.take(3)
+                    val isToday = date == java.time.LocalDate.now()
+                    val rate = completionRates[date.toString()] ?: 0f
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            dayOfWeek,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (rate >= 1f) MaterialTheme.colorScheme.primary
+                                    else if (rate > 0f) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (rate >= 1f) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            } else {
+                                Text(
+                                    text = "${(rate * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (rate > 0f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreaksWidget(tasks: List<TaskEntity>, streaks: Map<Int, Int>) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text("Habit Streaks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            if (tasks.isEmpty()) {
+                Text("No tasks scheduled.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                tasks.forEach { task ->
+                    val streak = streaks[task.id] ?: 0
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(getCategoryEmoji(task.category), fontSize = 18.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(task.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "$streak days",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Black,
+                                color = if (streak > 0) Color(0xFFFFB800) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (streak > 0) {
+                                Spacer(Modifier.width(4.dp))
+                                Text("🔥", fontSize = 16.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryBreakdownWidget(categoryCounts: Map<String, Int>) {
+    val categories = listOf("WORK", "HEALTH", "PERSONAL", "FAMILY", "SPIRITUAL", "OTHER")
+    val maxVal = categoryCounts.values.maxOrNull() ?: 1
+    
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text("Category Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(14.dp))
+            categories.forEach { cat ->
+                val count = categoryCounts[cat] ?: 0
+                val color = getCategoryColor(cat)
+                val fillFraction = if (maxVal > 0) count.toFloat() / maxVal else 0f
+                
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(cat, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("$count completed", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { fillFraction },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                        color = color,
+                        trackColor = color.copy(alpha = 0.12f)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun AnimatedBackground(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "bg")
-    val shift by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue  = 1f,
-        animationSpec = infiniteRepeatable(tween(8000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "bgShift"
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val backgroundColor = MaterialTheme.colorScheme.background
+
+    Box(
+        modifier = modifier
+            .background(backgroundColor)
+            .drawBehind {
+                drawRect(primaryColor.copy(alpha = 0.05f))
+            }
     )
-    val bgColor = if (shift > 0.5f) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
-    Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
-        Box(modifier = Modifier.fillMaxSize().background(bgColor))
-    }
 }
 
 @Composable
@@ -232,44 +403,23 @@ fun NowFocusCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSnooze: () -> Unit,
-    onIncrement: () -> Unit
+    onIncrement: () -> Unit,
+    onEnterConcentration: () -> Unit
 ) {
     val color = getCategoryColor(task.category)
     val isPaused = status == "PAUSED"
     val isPending = status == "PENDING"
-    val scale by rememberInfiniteTransition(label = "breathe").animateFloat(
-        initialValue = 0.98f,
-        targetValue = 1.02f,
-        animationSpec = infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "breatheScale"
-    )
-    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.55f,
-        animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "pulseAlpha"
-    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .clip(RoundedCornerShape(40.dp))
     ) {
         Box(
             Modifier
                 .matchParentSize()
-                .graphicsLayer {
-                    shadowElevation = 60f
-                    shape = RoundedCornerShape(40.dp)
-                    clip = false
-                    alpha = pulse
-                }
-                .background(color.copy(alpha = 0.55f))
+                .background(color.copy(alpha = 0.15f))
         )
         Box(Modifier.matchParentSize().background(color))
         Column(
@@ -334,6 +484,20 @@ fun NowFocusCard(
                     
                     GlassActionButton(Icons.Default.Check, "Done", Color.White, color, Modifier.weight(1.2f), onDone)
                 }
+            }
+        }
+        if (task.measurementType == "TIME") {
+            IconButton(
+                onClick = onEnterConcentration,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Fullscreen,
+                    contentDescription = "Concentration Mode",
+                    tint = Color.White
+                )
             }
         }
     }

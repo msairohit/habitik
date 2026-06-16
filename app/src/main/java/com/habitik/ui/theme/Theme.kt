@@ -78,7 +78,7 @@ private fun getLightColorScheme(primaryColor: Color, secondaryColor: Color) = li
 
 @Composable
 fun HabitikTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     theme: AppTheme = ThemeManager.currentTheme.value,
     content: @Composable () -> Unit
 ) {

@@ -19,6 +19,8 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
     companion object {
         const val CHANNEL_ID = "routine_notifications"
         const val CHANNEL_NAME = "Routine Reminders"
+        const val TIMER_CHANNEL_ID = "timer_notifications_v2"
+        const val TIMER_CHANNEL_NAME = "Timer Progress"
     }
 
     init {
@@ -35,7 +37,70 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
                 description = "Notifications for routine tasks"
             }
             notificationManager.createNotificationChannel(channel)
+
+            val timerChannel = NotificationChannel(
+                TIMER_CHANNEL_ID,
+                TIMER_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Live countdown progress for tasks"
+            }
+            notificationManager.createNotificationChannel(timerChannel)
         }
+    }
+
+    fun getTimerNotification(taskId: Int, title: String, remainingSecs: Long): android.app.Notification {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            taskId + 50000,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val pauseIntent = Intent(context, RoutineReceiver::class.java).apply {
+            action = "ACTION_PAUSE_TIMER"
+            putExtra("TASK_ID", taskId)
+        }
+        val pausePendingIntent = PendingIntent.getBroadcast(
+            context,
+            taskId + 60000,
+            pauseIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val doneIntent = Intent(context, RoutineReceiver::class.java).apply {
+            action = "ACTION_DONE_TIMER"
+            putExtra("TASK_ID", taskId)
+        }
+        val donePendingIntent = PendingIntent.getBroadcast(
+            context,
+            taskId + 70000,
+            doneIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val minutes = remainingSecs / 60
+        val seconds = remainingSecs % 60
+        val timeStr = String.format("%02d:%02d", minutes, seconds)
+
+        val notification = NotificationCompat.Builder(context, TIMER_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Focusing: $title")
+            .setContentText("Remaining: $timeStr")
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
+            .addAction(android.R.drawable.ic_menu_save, "Complete", donePendingIntent)
+            .build()
+
+        notification.flags = notification.flags or android.app.Notification.FLAG_NO_CLEAR or android.app.Notification.FLAG_ONGOING_EVENT
+        return notification
     }
 
     fun showNotification(routineId: Int, title: String, message: String) {
